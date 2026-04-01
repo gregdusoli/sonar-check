@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Sonar Check — Case de Engenharia</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green-900:#0D3320;--green-700:#1A5C38;--green-500:#2D7A3A;
+  --green-300:#5BAB68;--green-100:#D6EDD9;--green-50:#F0F9F1;
+  --amber-700:#92600A;--amber-400:#F59E0B;--amber-100:#FEF3C7;
+  --red-700:#B91C1C;--red-100:#FEE2E2;
+  --gray-900:#111827;--gray-700:#374151;--gray-600:#4B5563;
+  --gray-500:#6B7280;--gray-400:#9CA3AF;--gray-300:#D1D5DB;
+  --gray-200:#E5E7EB;--gray-100:#F3F4F6;--gray-50:#F9FAFB;
+  --white:#FFFFFF;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;background:#0D3320;color:var(--gray-900)}
+
+/* ── DECK ── */
+.deck{width:100%;height:100%;position:relative}
+.slide{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  background:var(--white);
+  opacity:0;pointer-events:none;
+  transform:translateX(60px);
+  transition:opacity .4s ease,transform .4s ease;
+  overflow-y:auto;overflow-x:hidden;
+}
+.slide.active{opacity:1;pointer-events:auto;transform:translateX(0)}
+.slide.exit-left{opacity:0;transform:translateX(-60px)}
+
+/* ── PROGRESS BAR ── */
+#progress-bar{
+  position:fixed;top:0;left:0;height:3px;
+  background:var(--green-300);
+  transition:width .4s ease;z-index:100;
+}
+
+/* ── NAV CONTROLS ── */
+#nav{
+  position:fixed;bottom:0;left:0;right:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 24px;
+  background:rgba(13,51,32,.95);
+  backdrop-filter:blur(8px);
+  z-index:100;
+  gap:16px;
+}
+#slide-counter{
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;color:rgba(255,255,255,.5);
+  letter-spacing:.08em;white-space:nowrap;
+}
+.nav-dots{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center}
+.nav-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(255,255,255,.25);
+  cursor:pointer;transition:all .2s;border:none;padding:0;
+}
+.nav-dot.active{background:var(--green-300);transform:scale(1.4)}
+.nav-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 18px;border-radius:100px;border:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;
+  transition:all .2s;white-space:nowrap;
+}
+.btn-prev{background:rgba(255,255,255,.1);color:rgba(255,255,255,.7)}
+.btn-prev:hover{background:rgba(255,255,255,.2)}
+.btn-next{background:var(--green-500);color:var(--white)}
+.btn-next:hover{background:var(--green-300)}
+.btn-next:disabled,.btn-prev:disabled{opacity:.3;cursor:default}
+
+/* ── SLIDE LAYOUT ── */
+.slide-header{
+  padding:14px 32px 14px;
+  border-bottom:1px solid var(--gray-100);
+  display:flex;align-items:center;gap:10px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:var(--gray-500);letter-spacing:.08em;text-transform:uppercase;
+  flex-shrink:0;
+}
+.slide-header .dot{width:6px;height:6px;border-radius:50%;background:var(--green-300)}
+.slide-body{
+  flex:1;padding:32px 40px 100px;
+  max-width:1000px;width:100%;margin:0 auto;
+}
+
+/* ── COVER ── */
+.cover{background:var(--green-900);color:var(--white)}
+.cover .slide-body{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:48px 48px 100px;max-width:900px;
+}
+.cover .shield{font-size:44px;margin-bottom:24px;display:block}
+.display{
+  font-family:'DM Serif Display',serif;
+  font-size:clamp(36px,5vw,56px);
+  line-height:1.1;color:var(--white);letter-spacing:-.02em;margin-bottom:16px;
+}
+.display em{color:var(--green-300);font-style:italic}
+.cover .subtitle{
+  font-size:clamp(15px,2vw,19px);color:rgba(255,255,255,.65);
+  font-weight:300;max-width:560px;line-height:1.6;margin-bottom:40px;
+}
+.cover-stats{display:flex;gap:0;flex-wrap:wrap;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden}
+.cover-stat{
+  flex:1;min-width:120px;padding:20px 24px;
+  border-right:1px solid rgba(255,255,255,.1);
+}
+.cover-stat:last-child{border-right:none}
+.cover-stat .number{font-family:'DM Serif Display',serif;font-size:32px;color:var(--green-300);line-height:1;margin-bottom:4px}
+.cover-stat .label{font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.05em;text-transform:uppercase;line-height:1.4}
+
+/* ── TYPOGRAPHY ── */
+.tag{display:inline-block;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px}
+.tag-green{background:var(--green-100);color:var(--green-700)}
+.tag-amber{background:var(--amber-100);color:var(--amber-700)}
+.tag-red{background:var(--red-100);color:var(--red-700)}
+h2{font-family:'DM Serif Display',serif;font-size:clamp(24px,3.5vw,36px);line-height:1.2;color:var(--gray-900);margin-bottom:20px}
+h3{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green-500);margin-bottom:8px}
+p{font-size:clamp(14px,1.6vw,16px);line-height:1.7;color:var(--gray-700)}
+p+p{margin-top:12px}
+strong{color:var(--gray-900);font-weight:600}
+code{font-family:'JetBrains Mono',monospace;font-size:13px;background:var(--green-50);color:var(--green-700);padding:2px 7px;border-radius:5px;font-weight:600}
+.divider{height:1px;background:var(--gray-200);margin:24px 0}
+
+/* ── CALLOUT ── */
+.callout{border-left:4px solid var(--green-500);background:var(--green-50);border-radius:0 10px 10px 0;padding:16px 20px;margin:20px 0}
+.callout-amber{border-left-color:var(--amber-400);background:var(--amber-100)}
+.callout-red{border-left-color:var(--red-700);background:var(--red-100)}
+.callout p{font-size:14px}
+
+/* ── GRID LAYOUTS ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.four-col{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+
+/* ── CARDS ── */
+.card{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:20px}
+.card-green{background:var(--green-50);border-color:var(--green-100)}
+.card-amber{background:var(--amber-100);border-color:#FDE68A}
+.card-red{background:var(--red-100);border-color:#FECACA}
+.card-icon{font-size:24px;margin-bottom:10px;display:block}
+.card p{font-size:13px}
+
+/* ── DIAGRAM ── */
+.diagram-wrap{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:12px;padding:24px 20px 20px;margin-top:16px}
+.diagram-title{text-align:center;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--gray-500);margin-bottom:24px}
+.loop-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:center;justify-items:center}
+.loop-node{border-radius:8px;padding:12px 16px;text-align:center;width:180px}
+.loop-node-title{font-size:13px;font-weight:600;margin-bottom:3px}
+.loop-node-sub{font-size:10px;opacity:.75}
+.ln-green{background:var(--green-100);border:1.5px solid var(--green-300);color:var(--green-900)}
+.ln-amber{background:var(--amber-100);border:1.5px solid var(--amber-400);color:var(--amber-700)}
+.ln-red{background:var(--red-100);border:1.5px solid #FCA5A5;color:var(--red-700)}
+.ln-gray{background:var(--gray-100);border:1.5px solid var(--gray-200);color:var(--gray-700)}
+.loop-arrow-h{color:var(--gray-400);font-size:18px;padding:0 6px}
+.loop-center{grid-column:2;grid-row:2;text-align:center;padding:0 20px}
+.loop-center-symbol{font-size:24px;color:var(--gray-400)}
+.loop-center-label{font-size:10px;color:var(--gray-500);margin-top:2px}
+.clock-badge{display:inline-flex;flex-direction:column;align-items:center;gap:4px;background:var(--amber-100);border:2px solid var(--amber-400);border-radius:10px;padding:10px 14px;margin-top:8px}
+.clock-face{width:36px;height:36px;border-radius:50%;border:2.5px solid var(--amber-700);position:relative;background:var(--white)}
+.clock-hand-m{position:absolute;bottom:50%;left:50%;width:2px;height:11px;background:var(--amber-700);transform-origin:bottom center;transform:translateX(-50%) rotate(-30deg);border-radius:2px}
+.clock-hand-h{position:absolute;bottom:50%;left:50%;width:2px;height:8px;background:var(--amber-700);transform-origin:bottom center;transform:translateX(-50%) rotate(120deg);border-radius:2px}
+.clock-dot{position:absolute;top:50%;left:50%;width:4px;height:4px;border-radius:50%;background:var(--amber-700);transform:translate(-50%,-50%)}
+.clock-label{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--amber-700)}
+.loop-left-arrow{grid-column:1;grid-row:2;justify-self:start;display:flex;flex-direction:column;align-items:center;gap:2px;padding-left:20px}
+.loop-right-arrow{grid-column:3;grid-row:2;justify-self:end;display:flex;flex-direction:column;align-items:center;gap:2px;padding-right:20px}
+.vert-line{width:2px;height:48px;background:var(--gray-300);position:relative}
+.vert-line::after{content:'↑';position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:14px;color:var(--gray-400)}
+.vert-line-down{width:2px;height:48px;background:var(--gray-300);position:relative}
+.vert-line-down::after{content:'↓';position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font-size:14px;color:var(--gray-400)}
+.loop-side-label{font-size:10px;color:var(--gray-500);font-weight:600;letter-spacing:.04em;text-transform:uppercase;text-align:center}
+.loop-cost{margin-top:16px;background:var(--red-100);border:1.5px solid #FCA5A5;border-radius:8px;padding:12px 20px;text-align:center}
+.loop-cost-title{font-size:13px;font-weight:700;color:var(--red-700);margin-bottom:3px}
+.loop-cost-sub{font-size:11px;color:#B91C1C;opacity:.8}
+
+/* ── BEFORE/AFTER ── */
+.ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+.ba-card{border-radius:10px;padding:20px}
+.ba-before{background:var(--red-100);border:1px solid #FECACA}
+.ba-after{background:var(--green-50);border:1px solid var(--green-100)}
+.ba-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px}
+.ba-before .ba-label{color:var(--red-700)}
+.ba-after .ba-label{color:var(--green-700)}
+.ba-step{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;font-size:13px}
+.ba-step-dot{width:5px;height:5px;border-radius:50%;margin-top:6px;flex-shrink:0}
+.ba-before .ba-step-dot{background:var(--red-700)}
+.ba-after .ba-step-dot{background:var(--green-500)}
+.ba-step-text{color:var(--gray-700);line-height:1.5}
+.ba-time{display:inline-block;margin-top:12px;padding:6px 14px;border-radius:100px;font-size:12px;font-weight:700}
+.ba-before .ba-time{background:var(--red-700);color:var(--white)}
+.ba-after .ba-time{background:var(--green-500);color:var(--white)}
+
+/* ── TABLE ── */
+.table-wrap{overflow-x:auto;margin-top:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--green-700)}
+thead th{padding:10px 14px;text-align:left;color:var(--white);font-weight:600;font-size:12px;letter-spacing:.04em}
+thead th:first-child{border-radius:8px 0 0 0}thead th:last-child{border-radius:0 8px 0 0}
+tbody tr{border-bottom:1px solid var(--gray-200)}
+tbody tr:last-child{border-bottom:none}
+tbody tr:nth-child(even){background:var(--gray-50)}
+tbody td{padding:10px 14px;color:var(--gray-700);vertical-align:top}
+tbody td:first-child{color:var(--gray-500);font-size:12px}
+.td-hl{color:var(--green-700)!important;font-weight:600}
+
+/* ── METRICS ── */
+.metric{background:var(--green-50);border:1px solid var(--green-100);border-radius:10px;padding:20px 16px;text-align:center}
+.metric-number{font-family:'DM Serif Display',serif;font-size:clamp(28px,3vw,36px);color:var(--green-700);line-height:1;margin-bottom:6px}
+.metric-label{font-size:11px;color:var(--gray-500);font-weight:500;line-height:1.4}
+
+/* ── PILLARS ── */
+.pillars{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.pillar{border-radius:10px;padding:20px;background:var(--gray-50);border:1px solid var(--gray-200);display:flex;gap:14px;align-items:flex-start}
+.pillar-icon{width:40px;height:40px;border-radius:8px;background:var(--green-100);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.pillar-title{font-size:14px;font-weight:600;color:var(--gray-900);margin-bottom:4px}
+.pillar-text{font-size:13px;color:var(--gray-600);line-height:1.6}
+
+/* ── QUOTE ── */
+.quote-block{background:var(--green-900);border-radius:12px;padding:32px 40px;text-align:center;position:relative;overflow:hidden;margin-bottom:24px}
+.quote-block::before{content:'"';position:absolute;top:-10px;left:20px;font-family:'DM Serif Display',serif;font-size:100px;color:rgba(255,255,255,.06);line-height:1}
+.quote-text{font-family:'DM Serif Display',serif;font-size:clamp(18px,2.2vw,24px);color:var(--white);line-height:1.5;position:relative;z-index:1}
+.quote-text em{color:var(--green-300);font-style:italic}
+
+/* ── EXPORT BUTTON ── */
+#btn-export{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 16px;border-radius:100px;border:1.5px solid rgba(255,255,255,.3);
+  background:transparent;color:rgba(255,255,255,.8);
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+#btn-export:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.5);color:var(--white)}
+
+/* ── PRINT MODAL ── */
+#print-modal{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;
+}
+#print-modal.open{display:flex}
+.print-modal-box{
+  background:var(--white);border-radius:16px;padding:36px 40px;
+  max-width:440px;width:90%;text-align:center;
+  box-shadow:0 24px 64px rgba(0,0,0,.3);
+}
+.print-modal-icon{font-size:40px;margin-bottom:16px}
+.print-modal-title{font-family:'DM Serif Display',serif;font-size:24px;color:var(--gray-900);margin-bottom:8px}
+.print-modal-desc{font-size:14px;color:var(--gray-600);line-height:1.6;margin-bottom:24px}
+.print-modal-steps{text-align:left;background:var(--gray-50);border-radius:10px;padding:16px 20px;margin-bottom:24px}
+.print-modal-steps li{font-size:13px;color:var(--gray-700);line-height:1.8;list-style:none;display:flex;gap:8px;align-items:flex-start}
+.print-modal-steps li::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green-500);margin-top:7px;flex-shrink:0}
+.print-modal-btns{display:flex;gap:10px;justify-content:center}
+.btn-print-go{padding:10px 24px;border-radius:100px;border:none;background:var(--green-500);color:var(--white);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+.btn-print-go:hover{background:var(--green-700)}
+.btn-print-cancel{padding:10px 20px;border-radius:100px;border:1px solid var(--gray-200);background:transparent;color:var(--gray-600);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer}
+.btn-print-cancel:hover{background:var(--gray-100)}
+
+/* ── PRINT MEDIA ── */
+@media print{
+  html,body{width:100%;height:auto;overflow:visible;background:white}
+  #progress-bar,#nav,#print-modal{display:none!important}
+  .deck{position:static;height:auto}
+  .slide{
+    position:relative!important;opacity:1!important;pointer-events:auto!important;
+    transform:none!important;display:flex!important;
+    width:100%;height:100vh;min-height:100vh;
+    page-break-after:always;break-after:page;
+    overflow:hidden;
+  }
+  .slide .slide-body{padding-bottom:32px}
+  .cover .slide-body{padding-bottom:32px}
+  .slide:last-child{page-break-after:avoid;break-after:avoid}
+  /* force background colors in print */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
+
+@media(max-width:640px){
+  .slide-body{padding:20px 20px 90px}
+  .cover .slide-body{padding:32px 24px 90px}
+  .two-col,.ba-grid,.pillars{grid-template-columns:1fr}
+  .three-col{grid-template-columns:1fr}
+  .four-col{grid-template-columns:1fr 1fr}
+  .cover-stats{flex-direction:column}
+  .cover-stat{border-right:none;border-bottom:1px solid rgba(255,255,255,.1)}
+  .cover-stat:last-child{border-bottom:none}
+  .loop-grid{grid-template-columns:1fr auto 1fr}
+  .loop-node{width:130px}
+  .nav-btn span.btn-text{display:none}
+  #nav{padding:10px 16px}
+  .loop-left-arrow,.loop-right-arrow{padding-left:8px;padding-right:8px}
+  .quote-block{padding:24px 20px}
+}
+@media(max-width:400px){
+  .loop-grid{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .loop-left-arrow,.loop-right-arrow,.loop-arrow-h{display:none}
+  .loop-center{padding:4px 0}
+  .four-col{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<div class="deck" id="deck">
+
+<!-- ══ SLIDE 1 — COVER ══════════════════════════════════════════════════════ -->
+<div class="slide cover active" data-slide="0">
+  <div class="slide-body">
+    <span class="shield">🛡️</span>
+    <div class="display">Sonar Check<br><em>Análise de Qualidade</em><br>Pré-Push com IA</div>
+    <p class="subtitle">Uma iniciativa de engenharia que eliminou o principal gargalo do ciclo de entrega — entregando feedback em segundos, antes do push, para toda a empresa.</p>
+    <div class="cover-stats">
+      <div class="cover-stat"><div class="number">300+</div><div class="label">Projetos impactados</div></div>
+      <div class="cover-stat"><div class="number">~1h</div><div class="label">Pipeline eliminada do ciclo</div></div>
+      <div class="cover-stat"><div class="number">0</div><div class="label">Config. por projeto</div></div>
+      <div class="cover-stat"><div class="number">1 cmd</div><div class="label">Para analisar o delta inteiro</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 2 — O PROBLEMA ══════════════════════════════════════════════════ -->
+<div class="slide" data-slide="1">
+  <div class="slide-header"><span class="dot"></span> 01 — O Problema</div>
+  <div class="slide-body">
+    <span class="tag tag-red">Dor real do processo</span>
+    <h2>Um ciclo que podia custar <em style="color:var(--red-700)">1 dia inteiro</em> de trabalho</h2>
+    <p>A pipeline do Sonar executa a cada push na branch <code>Develop</code> — branch compartilhada por <strong>mais de 300 profissionais de tecnologia</strong> entregando livremente ao mesmo tempo.</p>
+    <div class="callout callout-amber" style="margin-top:16px">
+      <p>⏱ <strong>Em alguns projetos, a pipeline leva até ~1 hora para executar.</strong> A cada novo push de qualquer desenvolvedor, o ciclo reinicia do zero.</p>
+    </div>
+    <p style="margin-top:12px">Com 300+ pessoas entregando continuamente, a janela livre raramente aparece. O desenvolvedor fica preso em um loop que escapa completamente do seu controle.</p>
+
+    <div class="diagram-wrap">
+      <div class="diagram-title">O loop de bloqueio — sem a skill</div>
+      <svg width="100%" viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg" style="display:block;max-width:700px;margin:0 auto">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M1 1L9 5L1 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+
+        <!-- Node 1: Dev faz push (top-left) -->
+        <rect x="30" y="30" width="175" height="56" rx="8" fill="#D6EDD9" stroke="#5BAB68" stroke-width="1.5"/>
+        <text x="117" y="54" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="13" font-weight="600" fill="#0D3320">Dev faz push</text>
+        <text x="117" y="72" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="10" fill="#1A5C38">branch Develop compartilhada</text>
+
+        <!-- Arrow 1→2 (top, left to right) -->
+        <line x1="206" y1="58" x2="355" y2="58" stroke="#9CA3AF" stroke-width="2" marker-end="url(#ah)" color="#9CA3AF"/>
+
+        <!-- Node 2: Pipeline (top-right) -->
+        <rect x="365" y="30" width="195" height="56" rx="8" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+        <text x="462" y="54" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="13" font-weight="600" fill="#92600A">Pipeline Sonar executa</text>
+        <text x="462" y="72" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="10" fill="#92600A">qualquer novo push reinicia o ciclo</text>
+
+        <!-- Clock badge (right of node 2, vertically centered) -->
+        <circle cx="610" cy="115" r="22" fill="white" stroke="#F59E0B" stroke-width="2"/>
+        <line x1="610" y1="115" x2="610" y2="100" stroke="#92600A" stroke-width="2" stroke-linecap="round"/>
+        <line x1="610" y1="115" x2="621" y2="121" stroke="#92600A" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="610" cy="115" r="2.5" fill="#92600A"/>
+        <text x="610" y="152" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="11" font-weight="600" fill="#92600A">~ 1 hora</text>
+
+        <!-- Arrow 2→3 (right side, top to bottom) -->
+        <line x1="560" y1="86" x2="560" y2="184" stroke="#9CA3AF" stroke-width="2" marker-end="url(#ah)" color="#9CA3AF"/>
+        <text x="575" y="140" font-family="DM Sans,sans-serif" font-size="10" font-weight="600" fill="#9CA3AF">falhou</text>
+
+        <!-- Center loop symbol -->
+        <text x="350" y="130" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="28" fill="#D1D5DB">↻</text>
+        <text x="350" y="148" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="10" fill="#9CA3AF">ciclo se repete</text>
+        <text x="350" y="160" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="10" fill="#9CA3AF">a cada push</text>
+
+        <!-- Arrow 3→4 (bottom, right to left) -->
+        <line x1="494" y1="222" x2="236" y2="222" stroke="#9CA3AF" stroke-width="2" marker-end="url(#ah)" color="#9CA3AF"/>
+
+        <!-- Node 3: Quality Gate FALHOU (bottom-right) -->
+        <rect x="365" y="194" width="195" height="56" rx="8" fill="#FEE2E2" stroke="#FCA5A5" stroke-width="1.5"/>
+        <text x="462" y="218" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="13" font-weight="600" fill="#B91C1C">Quality Gate: FALHOU</text>
+        <text x="462" y="236" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="10" fill="#B91C1C">violação encontrada</text>
+
+        <!-- Node 4: Dev corrige (bottom-left) -->
+        <rect x="30" y="194" width="175" height="56" rx="8" fill="#F3F4F6" stroke="#D1D5DB" stroke-width="1.5"/>
+        <text x="117" y="218" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="13" font-weight="600" fill="#374151">Dev corrige</text>
+        <text x="117" y="236" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="10" fill="#6B7280">aguarda janela livre</text>
+
+        <!-- Arrow 4→1 (left side, bottom to top) -->
+        <line x1="30" y1="194" x2="30" y2="88" stroke="#9CA3AF" stroke-width="2" marker-end="url(#ah)" color="#9CA3AF"/>
+        <text x="8" y="145" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9" fill="#9CA3AF" transform="rotate(-90,8,145)">300+ devs</text>
+      </svg>
+      <div class="loop-cost"><div class="loop-cost-title">Custo real por ciclo: até 1 dia inteiro de trabalho perdido</div><div class="loop-cost-sub">push bloqueado enquanto 300+ devs continuam entregando</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 3 — O PROBLEMA CRESCEU ══════════════════════════════════════════ -->
+<div class="slide" data-slide="2">
+  <div class="slide-header"><span class="dot"></span> 02 — O Problema Cresceu</div>
+  <div class="slide-body">
+    <span class="tag tag-amber">Novo contexto: IA na engenharia</span>
+    <h2>A IA acelerou o código. <em style="color:var(--amber-700)">O processo não acompanhou.</em></h2>
+    <div class="two-col" style="margin-top:20px">
+      <div>
+        <p>Com o crescimento do uso de IA para geração de código, o gap ficou ainda mais crítico. A IA pode produzir <strong>dezenas de arquivos em uma única sessão</strong>.</p>
+        <p style="margin-top:12px">O plugin nativo do Sonar analisa <strong>um arquivo de cada vez</strong>. Revisar 50 arquivos gerados pela IA, arquivo por arquivo, é completamente inviável.</p>
+        <div class="callout" style="margin-top:16px">
+          <p><strong>O problema não era técnico — era de processo.</strong> O feedback estava no lugar errado: depois do push, na pipeline.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card card-amber"><span class="card-icon">🤖</span><h3>IA gera 50 arquivos</h3><p>Uma sessão de pair programming com IA pode tocar dezenas de componentes, serviços e testes ao mesmo tempo.</p></div>
+        <div class="card card-red"><span class="card-icon">🔍</span><h3>Plugin verifica 1 por vez</h3><p>O desenvolvedor precisa abrir cada arquivo manualmente. Escala zero para entregas geradas por IA.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 4 — A SOLUÇÃO ═════════════════════════════════════════════════ -->
+<div class="slide" data-slide="3">
+  <div class="slide-header"><span class="dot"></span> 03 — A Solução</div>
+  <div class="slide-body">
+    <span class="tag tag-green">Iniciativa própria</span>
+    <h2>Mover o feedback para <em style="color:var(--green-500)">antes do push</em></h2>
+    <p>Uma <strong>skill de IA</strong> invocada com <code>/sonar-check</code> que analisa todos os arquivos do delta Git — usando as regras corporativas reais do SonarQube via MCP — e entrega diagnóstico consolidado em segundos.</p>
+    <div class="ba-grid">
+      <div class="ba-card ba-before">
+        <div class="ba-label">❌ Antes</div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Dev faz push na Develop</span></div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Pipeline executa por até 1 hora</span></div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Quality Gate falha</span></div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Dev corrige e aguarda nova janela</span></div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Ciclo se repete...</span></div>
+        <span class="ba-time">Até 1 dia perdido por ciclo</span>
+      </div>
+      <div class="ba-card ba-after">
+        <div class="ba-label">✅ Depois</div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Dev digita <code>/sonar-check</code></span></div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Skill analisa todo o delta local</span></div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Diagnóstico completo em segundos</span></div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Plano de correção gerado pela IA</span></div>
+        <div class="ba-step"><span class="ba-step-dot"></span><span class="ba-step-text">Push limpo, pipeline passa</span></div>
+        <span class="ba-time">Segundos, antes do push</span>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Plugin SonarQube for IDE</th><th>Skill Sonar Check</th></tr></thead>
+        <tbody>
+          <tr><td>Escopo</td><td>Arquivo aberto no editor</td><td class="td-hl">Todos os arquivos do delta Git</td></tr>
+          <tr><td>Acionamento</td><td>Manual, arquivo por arquivo</td><td class="td-hl">/sonar-check — um comando</td></tr>
+          <tr><td>Resultado</td><td>Highlights no editor</td><td class="td-hl">Diagnóstico + plano de remediação</td></tr>
+          <tr><td>IA gerando código</td><td>❌ Inviável para 50+ arquivos</td><td class="td-hl">✅ Qualquer volume</td></tr>
+          <tr><td>Evita surpresa na pipeline</td><td>Parcial</td><td class="td-hl">Completo para o delta inteiro</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 5 — COMO FOI CONSTRUÍDO ═════════════════════════════════════ -->
+<div class="slide" data-slide="4">
+  <div class="slide-header"><span class="dot"></span> 04 — Como Foi Construído</div>
+  <div class="slide-body">
+    <span class="tag tag-green">Decisões de arquitetura</span>
+    <h2>Engenharia que <em style="color:var(--green-500)">escala por design</em></h2>
+    <p>Distribuída como parte da infraestrutura de IA dos projetos da empresa. <strong>Zero configuração por projeto. Zero adoção voluntária necessária.</strong></p>
+    <div class="pillars">
+      <div class="pillar"><div class="pillar-icon">🎯</div><div><div class="pillar-title">Fonte de verdade única</div><div class="pillar-text">Todos os findings vêm exclusivamente das regras reais do SonarCloud via MCP. O modelo de IA nunca usa heurísticas próprias.</div></div></div>
+      <div class="pillar"><div class="pillar-icon">🔬</div><div><div class="pillar-title">Escopo restrito ao delta</div><div class="pillar-text">Apenas arquivos novos e modificados são analisados. Problemas pré-existentes ignorados estruturalmente.</div></div></div>
+      <div class="pillar"><div class="pillar-icon">⚡</div><div><div class="pillar-title">Detecção automática de ambiente</div><div class="pillar-text">A skill detecta e seleciona sozinha o modo de análise disponível — sem configuração manual.</div></div></div>
+      <div class="pillar"><div class="pillar-icon">📋</div><div><div class="pillar-title">Plano de remediação executável</div><div class="pillar-text">Em caso de violações, gera um plano com tarefas estruturadas que o agente de IA do editor pode executar.</div></div></div>
+    </div>
+    <div class="callout" style="margin-top:20px">
+      <p>Validado em projetos reais com correção de comportamentos não triviais. <strong>Confiabilidade foi tratada como requisito não negociável.</strong></p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 6 — IMPACTO ═══════════════════════════════════════════════════ -->
+<div class="slide" data-slide="5">
+  <div class="slide-header"><span class="dot"></span> 05 — Impacto</div>
+  <div class="slide-body">
+    <span class="tag tag-green">Resultado mensurável</span>
+    <h2>Alcance imediato, <em style="color:var(--green-500)">impacto duradouro</em></h2>
+    <div class="four-col">
+      <div class="metric"><div class="metric-number">300+</div><div class="metric-label">projetos beneficiados automaticamente</div></div>
+      <div class="metric"><div class="metric-number">300+</div><div class="metric-label">devs com ciclo de entrega mais rápido</div></div>
+      <div class="metric"><div class="metric-number">&lt;60s</div><div class="metric-label">feedback vs. até 1h na pipeline</div></div>
+      <div class="metric"><div class="metric-number">0</div><div class="metric-label">linhas de config. por projeto</div></div>
+    </div>
+    <div class="divider"></div>
+    <div class="three-col">
+      <div class="card card-green"><span class="card-icon">👨‍💻</span><h3>Devs individuais</h3><p>Eliminação do ciclo de espera. Feedback em segundos, no editor, antes de qualquer commit ir ao repositório remoto.</p></div>
+      <div class="card card-green"><span class="card-icon">🤖</span><h3>Times com IA</h3><p>A skill resolve o gap entre velocidade de geração e qualidade do código. A IA cria 50 arquivos — a skill valida todos de uma vez.</p></div>
+      <div class="card card-green"><span class="card-icon">🏢</span><h3>A empresa</h3><p>Menos retrabalho, menor tempo de ciclo, pipeline menos sobrecarregada e qualidade corporativa preservada.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 7 — O PROFISSIONAL ═══════════════════════════════════════════ -->
+<div class="slide" data-slide="6">
+  <div class="slide-header"><span class="dot"></span> 06 — O Profissional por trás</div>
+  <div class="slide-body">
+    <span class="tag tag-green">Além do código</span>
+    <h2>O que esse case <em style="color:var(--green-500)">revela</em></h2>
+    <div class="quote-block">
+      <p class="quote-text">Esta entrega <em>não foi demandada</em>. Foi identificada, desenhada e executada por iniciativa própria — do diagnóstico do problema até a distribuição em produção para toda a empresa.</p>
+    </div>
+    <div class="pillars">
+      <div class="pillar"><div class="pillar-icon">🔭</div><div><div class="pillar-title">Visão sistêmica</div><div class="pillar-text">O problema não era técnico, era de processo. A solução foi mover o ponto de verificação, não otimizar a pipeline.</div></div></div>
+      <div class="pillar"><div class="pillar-icon">📐</div><div><div class="pillar-title">Pensamento em escala</div><div class="pillar-text">Desenhado para 300+ projetos desde o início, sem dependências de configuração ou adoção voluntária.</div></div></div>
+      <div class="pillar"><div class="pillar-icon">🧠</div><div><div class="pillar-title">Domínio técnico amplo</div><div class="pillar-text">IA aplicada, integração com ferramentas corporativas reais, arquitetura de software e DevSecOps.</div></div></div>
+      <div class="pillar"><div class="pillar-icon">🏁</div><div><div class="pillar-title">Entrega com qualidade</div><div class="pillar-text">Validação iterativa em projetos reais, correção de edge-cases antes de considerar concluído. Sem atalhos.</div></div></div>
+    </div>
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--gray-200);display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gray-400)">
+      <span>Skill Sonar Check — Iniciativa de Engenharia</span>
+      <span>Guilherme Gomes · Engenharia</span>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- ══ PRINT MODAL ══════════════════════════════════════════════════════════ -->
+<div id="print-modal">
+  <div class="print-modal-box">
+    <div class="print-modal-icon">🖨️</div>
+    <div class="print-modal-title">Exportar como PDF</div>
+    <p class="print-modal-desc">O browser vai abrir o diálogo de impressão. Siga os passos abaixo para salvar como PDF com fidelidade total.</p>
+    <ul class="print-modal-steps">
+      <li>Em <strong>Destino</strong>, selecione <strong>Salvar como PDF</strong></li>
+      <li>Em <strong>Layout</strong>, selecione <strong>Paisagem</strong></li>
+      <li>Em <strong>Mais configurações</strong>, desative <em>Cabeçalhos e rodapés</em></li>
+      <li>Clique em <strong>Salvar</strong></li>
+    </ul>
+    <div class="print-modal-btns">
+      <button class="btn-print-cancel" onclick="closePrintModal()">Cancelar</button>
+      <button class="btn-print-go" onclick="doPrint()">Abrir diálogo →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NAVIGATION ══════════════════════════════════════════════════════════ -->
+<nav id="nav">
+  <button class="nav-btn btn-prev" id="btn-prev" onclick="navigate(-1)" disabled>
+    ← <span class="btn-text">Anterior</span>
+  </button>
+  <div class="nav-dots" id="nav-dots"></div>
+  <span id="slide-counter">1 / 7</span>
+  <button class="nav-btn btn-next" id="btn-next" onclick="navigate(1)">
+    <span class="btn-text">Próximo</span> →
+  </button>
+  <button id="btn-export" onclick="openPrintModal()">
+    <span>⬇</span> <span class="btn-text">Exportar PDF</span>
+  </button>
+</nav>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+let current = 0;
+let isAnimating = false;
+
+const bar = document.getElementById('progress-bar');
+const counter = document.getElementById('slide-counter');
+const btnPrev = document.getElementById('btn-prev');
+const btnNext = document.getElementById('btn-next');
+const dotsContainer = document.getElementById('nav-dots');
+
+// Build dots
+slides.forEach((_,i) => {
+  const d = document.createElement('button');
+  d.className = 'nav-dot' + (i===0?' active':'');
+  d.setAttribute('aria-label', 'Slide '+(i+1));
+  d.onclick = () => goTo(i);
+  dotsContainer.appendChild(d);
+});
+
+function updateUI() {
+  const pct = ((current + 1) / total) * 100;
+  bar.style.width = pct + '%';
+  counter.textContent = (current + 1) + ' / ' + total;
+  btnPrev.disabled = current === 0;
+  btnNext.disabled = current === total - 1;
+  btnNext.textContent = current === total - 1 ? '✓ Fim' : 'Próximo →';
+  document.querySelectorAll('.nav-dot').forEach((d,i) => d.classList.toggle('active', i===current));
+}
+
+function goTo(index) {
+  if (isAnimating || index === current || index < 0 || index >= total) return;
+  isAnimating = true;
+  const prev = slides[current];
+  const next = slides[index];
+  const dir = index > current ? 1 : -1;
+
+  prev.classList.remove('active');
+  if (dir > 0) prev.classList.add('exit-left');
+  if (dir < 0) { prev.style.transform = 'translateX(60px)'; prev.style.opacity = '0'; }
+
+  next.style.transform = `translateX(${dir * 60}px)`;
+  next.style.opacity = '0';
+  next.style.pointerEvents = 'none';
+
+  requestAnimationFrame(() => {
+    next.classList.add('active');
+    next.style.transform = '';
+    next.style.opacity = '';
+    next.style.pointerEvents = '';
+    next.scrollTop = 0;
+  });
+
+  current = index;
+  updateUI();
+
+  setTimeout(() => {
+    prev.classList.remove('exit-left');
+    prev.style.transform = '';
+    prev.style.opacity = '';
+    isAnimating = false;
+  }, 420);
+}
+
+function navigate(dir) { goTo(current + dir); }
+
+function openPrintModal() {
+  document.getElementById('print-modal').classList.add('open');
+}
+function closePrintModal() {
+  document.getElementById('print-modal').classList.remove('open');
+}
+function doPrint() {
+  closePrintModal();
+  // Small delay so modal closes cleanly before print dialog opens
+  setTimeout(() => window.print(), 100);
+}
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); navigate(1); }
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp') { e.preventDefault(); navigate(-1); }
+});
+
+// Touch/swipe
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, {passive:true});
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 50) navigate(dx < 0 ? 1 : -1);
+}, {passive:true});
+
+updateUI();
+</script>
+</body>
+</html>
