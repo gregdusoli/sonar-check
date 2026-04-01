@@ -1,7 +1,8 @@
 ## 🛡️ Sonar Check: Standby
 
 ### ⚪ Status
-Nenhuma alteração local detectada (staged, unstaged ou untracked).
+
+Nenhuma alteração local encontrada para ser analisada.
 
 ---
 

@@ -1,6 +1,7 @@
 ## 🛡️ Sonar Check: Erro de Conexão
 
 ### 🚫 Crítico
+
 Servidor MCP do Sonar está offline ou inacessível.
 
 ---
